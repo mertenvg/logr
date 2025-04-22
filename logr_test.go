@@ -60,7 +60,7 @@ func TestAddWriter(t *testing.T) {
 	}
 }
 
-func testMessageFunc(t *testing.T, ft Type, f func(v ...interface{}) string, args ...interface{}) {
+func testMessageFunc(t *testing.T, ft Type, f func(v ...any) string, args ...any) {
 	f(args...)
 	Wait()
 
@@ -74,7 +74,7 @@ func testMessageFunc(t *testing.T, ft Type, f func(v ...interface{}) string, arg
 
 	j := mustReadBuffer(jsb, t)
 	if !bytes.Contains(j, []byte("\"type\":\""+ft.String()+"\"")) {
-		t.Errorf("expected json buffer result to contain '\"type\":\". Got: %s" + ft.String() + "\"'", j)
+		t.Errorf("expected json buffer result to contain '\"type\":\". Got: %s"+ft.String()+"\"'", j)
 	}
 	if !bytes.Contains(j, []byte(strings.TrimSpace(fmt.Sprintln(args...)))) {
 		t.Errorf("expected json buffer to contain '%v'. Got: %s", strings.TrimSpace(fmt.Sprintln(args...)), j)
@@ -88,7 +88,7 @@ func testMessageFunc(t *testing.T, ft Type, f func(v ...interface{}) string, arg
 	}
 }
 
-func testMessagefFunc(t *testing.T, ft Type, f func(msg string, v ...interface{}) string, msg string, args ...interface{}) {
+func testMessagefFunc(t *testing.T, ft Type, f func(msg string, v ...any) string, msg string, args ...any) {
 	f(msg, args...)
 	Wait()
 
@@ -102,7 +102,7 @@ func testMessagefFunc(t *testing.T, ft Type, f func(msg string, v ...interface{}
 
 	j := mustReadBuffer(jsb, t)
 	if !bytes.Contains(j, []byte("\"type\":\""+ft.String()+"\"")) {
-		t.Errorf("expected json buffer result to contain '\"type\":\". Got: %s" + ft.String() + "\"'", j)
+		t.Errorf("expected json buffer result to contain '\"type\":\". Got: %s"+ft.String()+"\"'", j)
 	}
 	if !bytes.Contains(j, []byte(fmt.Sprintf(msg, args...))) {
 		t.Errorf("expected json buffer to contain '%v'. Got: %s", fmt.Sprintf(msg, args...), j)
@@ -149,11 +149,62 @@ func TestErrorf(t *testing.T) {
 }
 
 func TestWith(t *testing.T) {
-	With(MetaData{"test": "TestWith"}).Error("Test error message with additional meta data")
+	With(Meta{"test": "TestWith"}).Error("Test error message with additional meta data")
 	Wait()
 
 	b := mustReadBuffer(buf, t)
 	if !bytes.Contains(b, []byte("test:TestWith")) {
 		t.Errorf("expected buffer to contain 'test:TestWith'. Got: %s", b)
 	}
+}
+
+func ExampleAddWriter() {
+	AddWriter(os.Stdout)
+	// which is equivalent to
+	// 		AddWriter(os.Stdout, WithFormatter(FormatDefault), WithFilter(All))
+}
+
+func ExampleFormatWithColours() {
+	AddWriter(os.Stdout, WithFormatter(FormatWithColours))
+}
+
+func ExampleWithFilter() {
+	// None Type = iota      // None
+	// P    Type = 1 << iota // Panic
+	// E                     // Error
+	// W                     // Warning
+	// I                     // Info
+	// D                     // Debug
+	// S                     // Success
+	// Critical = P | E           // Panic and Error
+	// Monitor  = Critical | W    // Panic, Error, and Warning
+	// Verbose  = Monitor | I | S // Panic, Error, Warning, Info, and Success
+	// All      = Verbose | D     // Panic, Error, Warning, Info, Success, and Debug
+	AddWriter(os.Stdout, WithFilter(Monitor))
+	// which is equivalent to
+	// 		AddWriter(os.Stdout, WithFilter(P | E | W))
+}
+
+func ExampleStringToType() {
+	AddWriter(os.Stdout, WithFormatter(FormatWithColours), WithFilter(StringToType("PEW")))
+	// which is equivalent to
+	// 		AddWriter(os.Stdout, WithFilter(P | E | W))
+}
+
+func ExampleLabelToType() {
+	// available labels:
+	// 	none     // -
+	// 	panic    // Panic
+	// 	error    // Panic, Error
+	// 	warning  // Panic, Error, Warning
+	// 	info     // Panic, Error, Warning, Info
+	// 	success  // Panic, Error, Warning, Info, Success
+	// 	debug    // Panic, Error, Warning, Info, Success, and Debug
+	// 	critical // Panic, Error
+	// 	monitor  // Panic, Error, Warning
+	// 	verbose  // Panic, Error, Warning, Info, Success
+	// 	all      // Panic, Error, Warning, Info, Success, and Debug
+	AddWriter(os.Stdout, WithFormatter(FormatWithColours), WithFilter(LabelToType("success")))
+	// which is equivalent to
+	// 		AddWriter(os.Stdout, WithFilter(P | E | W | I | S)) // debug logs are filtered out
 }

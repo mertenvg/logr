@@ -52,6 +52,19 @@ var (
 		D:    "\x1B[38;5;153m",
 		S:    "\x1B[38;5;34m",
 	}
+	typeLabelMap = map[string]Type{
+		"none":     None,
+		"panic":    P,
+		"error":    Critical,
+		"warning":  Monitor,
+		"info":     Monitor | I,
+		"success":  Verbose,
+		"debug":    All,
+		"critical": Critical,
+		"monitor":  Monitor,
+		"verbose":  Verbose,
+		"all":      All,
+	}
 )
 
 // String returns a descriptive string of the log Type
@@ -108,4 +121,14 @@ func RuneToType(r rune) Type {
 		return IntToType(0)
 	}
 	return IntToType(i)
+}
+
+// LabelToType converts a label to a log type/level
+// Available labels are one of: none, panic, error, warning, info, success, debug, critical, monitor, verbose, all
+func LabelToType(l string) Type {
+	t, ok := typeLabelMap[strings.TrimSpace(strings.ToLower(l))]
+	if !ok {
+		panic(fmt.Sprintf("logr label `%s` not found in supported types (none, panic, error, warning, info, success, debug, critical, monitor, verbose, all)", l))
+	}
+	return t
 }
