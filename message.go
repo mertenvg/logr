@@ -5,7 +5,7 @@ const (
 	ColourReset = "\x1B[0m"
 )
 
-type MetaData map[string]interface{}
+type MetaData Meta
 
 // Message used to send log message to logger goroutine
 type Message struct {

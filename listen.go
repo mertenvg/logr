@@ -3,23 +3,30 @@ package logr
 // listen concurrently works through the buffered messages channel
 func listen(ms <-chan *Message) {
 	for {
-		m := <-ms
+		select {
 
-		mutex.RLock()
-		for c, w := range writers {
-			if m.Type&c.filter != m.Type {
-				continue
+		case wm := <-addWriter:
+			writers[wm.c] = wm.w
+
+		case wm := <-removeWriter:
+			delete(writers, wm.c)
+
+		case m := <-ms:
+			for c, w := range writers {
+				if m.Type&c.filter != m.Type {
+					continue
+				}
+				_, err := w.Write(c.format(m))
+				if err != nil {
+					Errorf("failed to write message to Writer: %v", err)
+				}
 			}
-			_, err := w.Write(c.format(m))
-			if err != nil {
-				Errorf("failed to write message to Writer: %v", err)
-			}
+
+			close(m.done)
+
+			m.Reset()
+			pool.Put(m)
+
 		}
-		mutex.RUnlock()
-
-		close(m.done)
-
-		m.Reset()
-		pool.Put(m)
 	}
 }

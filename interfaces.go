@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type Interfaces []interface{}
+type Interfaces []any
 
 func (i Interfaces) Strings() []string {
 	var r []string

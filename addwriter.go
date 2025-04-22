@@ -7,8 +7,15 @@ import (
 	"sync"
 )
 
+type writerMessage struct {
+	c *WriterConfig
+	w io.Writer
+}
+
 var (
-	mutex = sync.RWMutex{}
+	mutex        = sync.RWMutex{}
+	addWriter    = make(chan writerMessage)
+	removeWriter = make(chan writerMessage)
 )
 
 // Formatter is a function that returns a formatted byte array representation of the given
@@ -110,13 +117,12 @@ func AddWriter(w io.Writer, configs ...WriterConfigModifier) (stop func()) {
 		oc = c(oc)
 	}
 	// register the output
-	p := &oc
-	mutex.Lock()
-	writers[p] = w
-	mutex.Unlock()
+	wm := writerMessage{
+		w: w,
+		c: &oc,
+	}
+	addWriter <- wm
 	return func() {
-		mutex.Lock()
-		delete(writers, p)
-		mutex.Unlock()
+		removeWriter <- wm
 	}
 }
