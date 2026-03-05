@@ -1,6 +1,7 @@
 package logr
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -9,7 +10,8 @@ import (
 )
 
 var (
-	messages chan *Message
+	messages     chan *Message
+	listenerDone chan struct{}
 
 	logr    Logger = &Logr{}
 	pool           = &sync.Pool{}
@@ -25,21 +27,78 @@ func SetMeta(data map[string]any) {
 func SetBufferSize(size int) {
 	if messages != nil {
 		close(messages)
-		Wait()
+		<-listenerDone
 	}
+	listenerDone = make(chan struct{})
 	msgs := make(chan *Message, size)
 	go listen(msgs)
 	messages = msgs
 }
 
-// Wait for log messages to be processed
-func Wait() {
-	for {
-		time.Sleep(time.Millisecond)
-		if messages == nil || len(messages) == 0 {
-			break
+// WaitOption configures the behavior of Wait
+type WaitOption func(*waitConfig)
+
+type waitConfig struct {
+	timeout time.Duration
+	ctx     context.Context
+}
+
+// WithTimeout sets a maximum duration for Wait to block
+func WithTimeout(d time.Duration) WaitOption {
+	return func(c *waitConfig) {
+		c.timeout = d
+	}
+}
+
+// WithContext sets a context for Wait to observe for cancellation
+func WithContext(ctx context.Context) WaitOption {
+	return func(c *waitConfig) {
+		c.ctx = ctx
+	}
+}
+
+// Wait for log messages to be processed. Returns true when all messages are processed.
+// Optional WaitOption can be provided to set a timeout or context.
+// Without options, Wait blocks until all pending messages are processed.
+// Returns false if the timeout or context was cancelled before all messages were processed.
+func Wait(opts ...WaitOption) bool {
+	if messages == nil {
+		return true
+	}
+
+	cfg := waitConfig{}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	m := pool.Get().(*Message)
+	m.Type = None
+	m.done = make(chan struct{})
+
+	done := m.done
+
+	messages <- m
+
+	if cfg.ctx != nil || cfg.timeout > 0 {
+		ctx := cfg.ctx
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		if cfg.timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, cfg.timeout)
+			defer cancel()
+		}
+		select {
+		case <-done:
+			return true
+		case <-ctx.Done():
+			return false
 		}
 	}
+
+	<-done
+	return true
 }
 
 // Logger defines the methods available both by the logr package and Logr containing additional meta data.
@@ -130,7 +189,7 @@ func (l *Logr) Successf(msg string, v ...any) string {
 func (l *Logr) With(data Meta) Logger {
 	meta := l.meta.Copy()
 	for k, v := range data {
-		meta.With(k, v)
+		meta[k] = v
 	}
 	return &Logr{
 		meta: meta,
@@ -152,13 +211,16 @@ func log(t Type, wait bool, msg string, meta map[string]any) string {
 	m.Desc = msg
 	m.Meta = meta
 	m.done = make(chan struct{})
+
+	code := m.Code
+
 	messages <- m
 
 	if wait {
 		<-m.done
 	}
 
-	return m.Code
+	return code
 }
 
 // Panic logs inputs as panics and panics

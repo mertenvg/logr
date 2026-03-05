@@ -7,8 +7,9 @@ func M(key string, value any) Meta {
 type Meta map[string]any
 
 func (m Meta) With(key string, value any) Meta {
-	m[key] = value
-	return m
+	n := m.Copy()
+	n[key] = value
+	return n
 }
 
 func (m Meta) Copy() Meta {

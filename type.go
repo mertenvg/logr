@@ -105,7 +105,7 @@ var (
 func RuneToType(r rune) Type {
 	i := strings.IndexRune(types, r)
 	if i == -1 {
-		return IntToType(0)
+		return None
 	}
-	return IntToType(i)
+	return Type(1 << (i + 1))
 }

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
 )
 
 type writerMessage struct {
@@ -13,7 +12,6 @@ type writerMessage struct {
 }
 
 var (
-	mutex        = sync.RWMutex{}
 	addWriter    = make(chan writerMessage)
 	removeWriter = make(chan writerMessage)
 )
