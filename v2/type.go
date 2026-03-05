@@ -118,17 +118,19 @@ var (
 func RuneToType(r rune) Type {
 	i := strings.IndexRune(types, r)
 	if i == -1 {
-		return IntToType(0)
+		return None
 	}
-	return IntToType(i)
+	return Type(1 << (i + 1))
 }
 
 // LabelToType converts a label to a log type/level
 // Available labels are one of: none, panic, error, warning, info, success, debug, critical, monitor, verbose, all
+// If the label is not found, it defaults to error and logs a message explaining the cause
 func LabelToType(l string) Type {
 	t, ok := typeLabelMap[strings.TrimSpace(strings.ToLower(l))]
 	if !ok {
-		panic(fmt.Sprintf("logr label `%s` not found in supported types (none, panic, error, warning, info, success, debug, critical, monitor, verbose, all)", l))
+		Errorf("logr label `%s` not found in supported types (none, panic, error, warning, info, success, debug, critical, monitor, verbose, all), defaulting to error", l)
+		return Critical
 	}
 	return t
 }

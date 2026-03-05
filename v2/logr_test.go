@@ -3,7 +3,7 @@ package logr
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func mustReadBuffer(buf *bytes.Buffer, t *testing.T) []byte {
-	bs, err := ioutil.ReadAll(buf)
+	bs, err := io.ReadAll(buf)
 	if err != nil {
 		t.Errorf("failed to read buffer: %v", err)
 	}

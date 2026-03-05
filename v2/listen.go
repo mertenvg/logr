@@ -1,7 +1,13 @@
 package logr
 
+import (
+	"fmt"
+	"os"
+)
+
 // listen concurrently works through the buffered messages channel
 func listen(ms <-chan *Message) {
+	defer close(listenerDone)
 	for {
 		select {
 
@@ -11,14 +17,19 @@ func listen(ms <-chan *Message) {
 		case wm := <-removeWriter:
 			delete(writers, wm.c)
 
-		case m := <-ms:
-			for c, w := range writers {
-				if m.Type&c.filter != m.Type {
-					continue
-				}
-				_, err := w.Write(c.format(m))
-				if err != nil {
-					Errorf("failed to write message to Writer: %v", err)
+		case m, ok := <-ms:
+			if !ok {
+				return
+			}
+			if m.Type != None {
+				for c, w := range writers {
+					if m.Type&c.filter != m.Type {
+						continue
+					}
+					_, err := w.Write(c.format(m))
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "logr: failed to write message to Writer: %v\n", err)
+					}
 				}
 			}
 
